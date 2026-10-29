@@ -116,6 +116,25 @@ reload_modules() {
     run_privileged modprobe snd_usb_audio
 }
 
+# The file on disk can be the patched one while the kernel still runs the
+# stock module (unload fails when PipeWire or another USB sound card holds it).
+loaded_module_is_patched() {
+    local on_disk loaded
+    on_disk="$(modinfo -F srcversion snd_usb_audio 2>/dev/null || true)"
+    loaded="$(cat /sys/module/snd_usb_audio/srcversion 2>/dev/null || true)"
+    [[ -n "$on_disk" && "$on_disk" == "$loaded" ]]
+}
+
+show_loaded_state() {
+    if [[ ! -d /sys/module/snd_usb_audio ]]; then
+        printf '%-22s %s\n' "Loaded module" "not loaded"
+    elif loaded_module_is_patched; then
+        printf '%-22s %s\n' "Loaded module" "patched (running)"
+    else
+        printf '%-22s %s\n' "Loaded module" "STOCK still in memory -> reboot"
+    fi
+}
+
 show_secure_boot_hint() {
     if have_command mokutil && mokutil --sb-state 2>/dev/null | grep -qi 'enabled'; then
         echo
@@ -150,6 +169,12 @@ install_driver() {
     echo
     echo "Active snd_usb_audio module:"
     modinfo -n snd_usb_audio || true
+    if [[ -d /sys/module/snd_usb_audio ]] && ! loaded_module_is_patched; then
+        echo
+        echo "[WARN] The stock snd_usb_audio is still loaded in memory (in use by"
+        echo "       PipeWire or another USB sound card). Reboot to activate the"
+        echo "       patched module: sudo reboot"
+    fi
     show_secure_boot_hint
     echo
     echo "Playback devices:"
@@ -177,6 +202,7 @@ status() {
     printf '%-22s %s\n' "Missing packages" "$(missing_packages | tr '\n' ' ')"
     printf '%-22s %s\n' "DKMS" "$(dkms status -m "$dkms_name" 2>/dev/null | tr '\n' ' ' || echo 'dkms not installed')"
     printf '%-22s %s\n' "Active snd_usb_audio" "${active_path:-unknown}"
+    show_loaded_state
     if [[ "$active_path" == */updates/dkms/* ]]; then
         printf '%-22s %s\n' "Result" "patched module active"
     else
