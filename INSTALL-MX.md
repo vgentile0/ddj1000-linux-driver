@@ -42,6 +42,12 @@ raggiungibile. Se preferisci, disattivalo con `sudo systemctl disable --now ssh`
 
 ### 1.1 Allinea kernel e sorgenti
 
+> La configurazione **testata** è MX Linux 25.3 Xfce (non AHS) con kernel
+> **6.12.113+deb13-amd64** e `linux-source-6.12` **6.12.113-1**. Per ottenere
+> esattamente queste versioni, anche quando non sono più le più recenti, segui
+> la sezione *Supported versions* del README. Il metodo qui sotto (ultimo
+> kernel disponibile) funziona solo finché Debian resta sulla serie 6.12.
+
 DKMS compila il driver con i sorgenti del pacchetto `linux-source-6.12`, che
 deve avere **la stessa versione** del kernel installato. Il modo più semplice
 è portare il kernel all'ultima versione disponibile, poi bloccarlo di nuovo:

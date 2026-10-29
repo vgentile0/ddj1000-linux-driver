@@ -18,6 +18,78 @@
 >   (needs Internet the first time for `dkms`, headers and `linux-source`).
 > - Italian install guide for an offline MX Linux PC: `INSTALL-MX.md`.
 
+## Supported versions (read this first)
+
+This fork has been built and tested on **one exact setup only**. Other
+versions may work, but are not supported.
+
+| Component | Tested version |
+|---|---|
+| Distribution | **MX Linux 25.3 "Infinity", Xfce, x64** (standard edition, **not AHS**) |
+| Debian base | Debian 13.7 "trixie" |
+| Init system | **systemd** (required: the stack uses systemd units) |
+| Kernel | **6.12.113+deb13-amd64** (Debian package `6.12.113-1`) |
+| Kernel sources | `linux-source-6.12` **6.12.113-1** (must match the kernel) |
+| Controller | Pioneer DJ / AlphaTheta DDJ-1000, USB ID `2b73:0020` |
+
+Why so strict:
+
+- The kernel patch exists only for the **6.12** series
+  (`patches/linux/snd-usb-audio-ddj1000-6.12.patch`). It was verified to apply
+  on 6.12.107 and 6.12.113. Other series (6.13+, backports kernels) need a new
+  patch.
+- DKMS builds from Debian's `linux-source-6.12` package, which must have the
+  **same version** as the running `linux-image`. A mismatch is reported with a
+  warning and may produce a module that does not load.
+- **MX Linux AHS** uses a Liquorix kernel: not supported.
+- **sysvinit** (the default boot entry on MX) is not supported.
+
+### How to get exactly this setup
+
+1. **ISO**: download *MX-25.3 Xfce x64* (the standard one, not "AHS") from the
+   official site <https://mxlinux.org/download-links/> and check its SHA256
+   against the `.sha256` file published next to it.
+2. **Install** normally. In the boot menu (live and installed system) choose
+   the entry ending in **(systemd)**. Check with `ps -p 1 -o comm=` → `systemd`.
+3. **Kernel 6.12.113**: update and install the exact packages
+   ```
+   sudo apt update
+   sudo apt install linux-image-6.12.113+deb13-amd64 \
+                    linux-headers-6.12.113+deb13-amd64 \
+                    linux-source-6.12=6.12.113-1
+   sudo reboot
+   uname -r            # must print 6.12.113+deb13-amd64
+   ```
+4. **Freeze the kernel** so updates cannot replace it:
+   ```
+   sudo apt-mark hold linux-image-amd64 linux-headers-amd64 \
+     linux-image-$(uname -r) linux-headers-$(uname -r) linux-source-6.12
+   ```
+5. Install the stack: `bash scripts/install-ddj1000-linux-stack.sh install`,
+   then reboot once so the patched module replaces the one already in memory.
+
+**If 6.12.113-1 is no longer in the Debian repositories** (Debian keeps only
+the newest security build), fetch it from the official Debian snapshot archive
+of the day it was current:
+
+```
+echo 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261029T130000Z/ trixie-security main' \
+  | sudo tee /etc/apt/sources.list.d/snapshot-6.12.113.list
+sudo apt update
+sudo apt install linux-image-6.12.113+deb13-amd64 \
+                 linux-headers-6.12.113+deb13-amd64 \
+                 linux-source-6.12=6.12.113-1
+sudo rm /etc/apt/sources.list.d/snapshot-6.12.113.list
+sudo apt update
+```
+
+Verify that kernel and sources match before installing the driver:
+
+```
+dpkg-query -W -f='${Version}\n' linux-source-6.12 linux-image-$(uname -r)
+# both lines must read 6.12.113-1
+```
+
 Experimental Linux audio-driver and host-stack work for the AlphaTheta / Pioneer DJ DDJ-1000.
 
 This repository contains standalone Linux-facing DDJ-1000 transport, install flow, and validation work for discussion, testing, and publication.
@@ -33,7 +105,7 @@ This repository contains standalone Linux-facing DDJ-1000 transport, install flo
 ## Current Status
 
 - installable as an experimental bring-up stack
-- validated primarily on Debian or Ubuntu style Linux setups
+- this fork: tested only on MX Linux 25.3 / kernel 6.12.113 (see "Supported versions")
 - still hardware-dependent and not yet a polished end-user package
 - only the `Master` desktop sink is exported through `pactl`; `Cue` and `Aux` remain ALSA-only today
 - licensed as `GPL-2.0-only` for kernel-adjacent patching and redistribution clarity
