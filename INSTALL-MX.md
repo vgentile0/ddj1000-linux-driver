@@ -161,7 +161,9 @@ occupate risorse del controller e vanno gestiti:
 **Attenzione al MIDI:** il servizio di sblocco (`ddj1000-unlock.service`)
 tiene aperta in lettura la porta MIDI del controller (`amidi -d`) e manda un
 keepalive ogni secondo. Se Stembox apre la porta MIDI in modo esclusivo
-potrebbe trovarla occupata. Vedi `CONTEXT.md`, sezione "Problemi aperti".
+potrebbe trovarla occupata. Soluzioni possibili: il programma DJ gestisce da
+solo handshake e keepalive, oppure servizio e programma usano entrambi l'ALSA
+sequencer, che permette a più client di leggere la stessa porta.
 
 ## Disinstallare
 

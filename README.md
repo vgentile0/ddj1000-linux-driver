@@ -17,7 +17,6 @@
 > - Install with `bash scripts/install-ddj1000-linux-stack.sh install`
 >   (needs Internet the first time for `dkms`, headers and `linux-source`).
 > - Italian install guide for an offline MX Linux PC: `INSTALL-MX.md`.
->   Project context: `CONTEXT.md`.
 
 Experimental Linux audio-driver and host-stack work for the AlphaTheta / Pioneer DJ DDJ-1000.
 
