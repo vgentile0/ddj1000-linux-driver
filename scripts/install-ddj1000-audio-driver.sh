@@ -46,7 +46,7 @@ required_packages() {
 missing_packages() {
     local pkg
     while read -r pkg; do
-        dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" || echo "$pkg"
+        dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -Eq "(install|hold) ok installed" || echo "$pkg"
     done < <(required_packages)
 }
 
@@ -90,6 +90,7 @@ stage_dkms_source() {
     tmp="$(mktemp -d)"
     install -d "$tmp/patches"
     install -m 0644 "$repo_root/dkms/dkms.conf" "$tmp/dkms.conf"
+    install -m 0644 "$repo_root/dkms/Makefile" "$tmp/Makefile"
     install -m 0755 "$repo_root/dkms/prepare-sources.sh" "$tmp/prepare-sources.sh"
     install -m 0644 "$repo_root"/patches/linux/snd-usb-audio-ddj1000-*.patch "$tmp/patches/"
 
@@ -100,10 +101,14 @@ stage_dkms_source() {
 }
 
 remove_dkms_package() {
-    if dkms status -m "$dkms_name" 2>/dev/null | grep -q .; then
-        run_privileged dkms remove -m "$dkms_name" --all || true
-    fi
-    run_privileged rm -rf /usr/src/"$dkms_name"-*
+    local dir version
+    for dir in /var/lib/dkms/"$dkms_name"/*/; do
+        [[ -d "$dir" ]] || continue
+        version="$(basename "$dir")"
+        [[ "$version" == "source" || "$version" == kernel-* ]] && continue
+        run_privileged dkms remove -m "$dkms_name" -v "$version" --all || true
+    done
+    run_privileged rm -rf /var/lib/dkms/"$dkms_name" /usr/src/"$dkms_name"-*
 }
 
 reload_modules() {
@@ -129,11 +134,16 @@ install_driver() {
     stage_dkms_source
 
     run_privileged dkms add -m "$dkms_name" -v "$dkms_version"
-    if ! run_privileged dkms install -m "$dkms_name" -v "$dkms_version" -k "$kernel_version"; then
-        echo "[ERROR] DKMS build failed. Log:" >&2
-        echo "        /var/lib/dkms/$dkms_name/$dkms_version/build/make.log" >&2
+    # Some dkms wrappers also try every other installed kernel; builds for
+    # kernels without headers fail and are harmless. What matters is the
+    # running kernel.
+    run_privileged dkms install -m "$dkms_name" -v "$dkms_version" -k "$kernel_version" || true
+    if ! dkms status -m "$dkms_name" -v "$dkms_version" -k "$kernel_version" 2>/dev/null | grep -q 'installed'; then
+        echo "[ERROR] DKMS build failed for $kernel_version. Show the log with:" >&2
+        echo "        sudo tail -40 /var/lib/dkms/$dkms_name/$dkms_version/build/make.log" >&2
         exit 1
     fi
+    echo "[INFO] DKMS module installed for $kernel_version."
 
     reload_modules || true
 

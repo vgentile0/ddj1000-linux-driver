@@ -6,7 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 udev_rule_source="$repo_root/config/udev/99-ddj1000-hid.rules"
 udev_rule_target="/etc/udev/rules.d/99-ddj1000-hid.rules"
-hid_device_path="${DDJ1000_HID_DEVICE:-/dev/hidraw4}"
+hid_device_path="${DDJ1000_HID_DEVICE:-}"
 
 packages=(
     pkgconf
@@ -44,7 +44,7 @@ Commands:
   help              Show this help.
 
 Environment:
-    DDJ1000_HID_DEVICE Override the hidraw device path to check. Default: /dev/hidraw4
+    DDJ1000_HID_DEVICE Override the hidraw device path to check. Default: auto-detect by USB ID 2b73:0020
 
 Examples:
   ./scripts/setup-linux.sh check
@@ -167,7 +167,7 @@ check_groups() {
 }
 
 resolve_hid_device() {
-    if [[ -e "$hid_device_path" ]]; then
+    if [[ -n "$hid_device_path" && -e "$hid_device_path" ]]; then
         printf '%s\n' "$hid_device_path"
         return
     fi
@@ -181,7 +181,7 @@ resolve_hid_device() {
         fi
     done
 
-    printf '%s\n' "$hid_device_path"
+    printf "%s\n" "${hid_device_path:-not found}"
 }
 
 resolve_usb_device() {
