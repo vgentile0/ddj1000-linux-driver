@@ -16,6 +16,28 @@ Il PC resta offline: Internet serve **solo** durante la fase 1.
 3. Copia questa cartella sul PC (chiavetta USB o `git clone`), per esempio in
    `~/ddj1000-linux-driver`.
 
+### Opzionale: lavorare da un altro computer via SSH (VS Code)
+
+Sul PC DJ, collegato alla rete di casa:
+
+```
+sudo apt install openssh-server
+sudo systemctl enable --now ssh
+hostname -I
+```
+
+L'ultimo comando mostra l'IP (es. `192.168.1.50`). Dal tuo computer:
+
+- terminale: `ssh DDJ1000@192.168.1.50`
+- copia dell'archivio: `scp ddj1000-linux-driver-mx.tar.gz DDJ1000@192.168.1.50:~`
+  poi sul PC `tar -xzf ddj1000-linux-driver-mx.tar.gz`
+- VS Code: estensione **Remote - SSH** → "Connect to Host…" →
+  `DDJ1000@192.168.1.50`; puoi trascinare file nella barra Explorer
+
+I comandi con `sudo` chiedono la password nel terminale di VS Code.
+Quando il PC torna offline, SSH può restare installato: senza rete non è
+raggiungibile. Se preferisci, disattivalo con `sudo systemctl disable --now ssh`.
+
 ## Fase 1 — Con Internet collegato
 
 ### 1.1 Allinea kernel e sorgenti
