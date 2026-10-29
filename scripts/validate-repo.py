@@ -48,7 +48,10 @@ def check_required_files() -> list[str]:
         REPO_ROOT / "scripts" / "runtime" / "ddj1000-startup-prep.sh",
         REPO_ROOT / "scripts" / "runtime" / "ddj1000-usb-probe.py",
         REPO_ROOT / "scripts" / "runtime" / "ddj1000-audio-stream.py",
-        REPO_ROOT / "patches" / "linux" / "snd-usb-audio-ddj1000-composite-quirk.patch",
+        REPO_ROOT / "patches" / "linux" / "snd-usb-audio-ddj1000-6.12.patch",
+        REPO_ROOT / "dkms" / "dkms.conf",
+        REPO_ROOT / "dkms" / "Makefile",
+        REPO_ROOT / "dkms" / "prepare-sources.sh",
         REPO_ROOT / ".github" / "workflows" / "static-checks.yml",
     ]
     failures: list[str] = []

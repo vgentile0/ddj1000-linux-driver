@@ -1,0 +1,138 @@
+diff -ruN a/sound/usb/endpoint.c b/sound/usb/endpoint.c
+--- a/sound/usb/endpoint.c
++++ b/sound/usb/endpoint.c
+@@ -1777,6 +1777,12 @@
+  * This function is called from the context of an endpoint that received
+  * the packet and is used to let another endpoint object handle the payload.
+  */
++/* Pioneer DDJ-1000: pace playback nominally on empty implicit-fb URBs */
++static inline bool ddj1000_nominal_fb(struct snd_usb_endpoint *ep)
++{
++	return ep->chip->usb_id == USB_ID(0x2b73, 0x0020);
++}
++
+ static void snd_usb_handle_sync_urb(struct snd_usb_endpoint *ep,
+ 				    struct snd_usb_endpoint *sender,
+ 				    const struct urb *urb)
+@@ -1811,8 +1817,13 @@
+ 		/*
+ 		 * skip empty packets. At least M-Audio's Fast Track Ultra stops
+ 		 * streaming once it received a 0-byte OUT URB
++		 *
++		 * The Pioneer DDJ-1000 never sends payload on its implicit
++		 * feedback endpoint under Linux, so skipping would stall
++		 * playback forever. For that device only, keep the sink
++		 * moving with nominal pacing instead (see below).
+ 		 */
+-		if (bytes == 0)
++		if (bytes == 0 && !ddj1000_nominal_fb(ep))
+ 			return;
+ 
+ 		spin_lock_irqsave(&ep->lock, flags);
+@@ -1838,6 +1849,23 @@
+ 		 */
+ 
+ 		out_packet->packets = in_ctx->packets;
++
++		/*
++		 * DDJ-1000: empty implicit-fb URB. A zero packet_size[] makes
++		 * snd_usb_endpoint_next_packet_size() fall back to the nominal
++		 * rate (freqm), so no 0-byte OUT URB is ever sent.
++		 */
++		if (bytes == 0) {
++			for (i = 0; i < in_ctx->packets; i++)
++				out_packet->packet_size[i] = 0;
++			spin_unlock_irqrestore(&ep->lock, flags);
++			usb_audio_dbg(ep->chip,
++				      "empty implicit fb URB on EP 0x%x, nominal pacing\n",
++				      sender->ep_num);
++			snd_usb_queue_pending_output_urbs(ep, false);
++			return;
++		}
++
+ 		for (i = 0; i < in_ctx->packets; i++) {
+ 			if (urb->iso_frame_desc[i].status == 0) {
+ 				unsigned int frames =
+diff -ruN a/sound/usb/quirks-table.h b/sound/usb/quirks-table.h
+--- a/sound/usb/quirks-table.h
++++ b/sound/usb/quirks-table.h
+@@ -3083,6 +3083,67 @@
+ 
+ {
+ 	/*
++	 * PIONEER DJ DDJ-1000
++	 * PCM is 6 channels out, 6 channels in @ 44.1 fixed.
++	 * The feedback for the output is the input.
++	 * Playback buses: 1/2 Master, 3/4 Cue (headphones), 5/6 Aux.
++	 *
++	 * Unlike the DDJ-800/RR/SR2 entries, keep the standard USB-MIDI
++	 * streaming interface available so the controller startup/unlock
++	 * handshake can run after the audio quirk binds.
++	 */
++	USB_DEVICE_VENDOR_SPEC(0x2b73, 0x0020),
++	QUIRK_DRIVER_INFO {
++		QUIRK_DATA_COMPOSITE {
++			{
++				QUIRK_DATA_AUDIOFORMAT(0) {
++					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
++					.channels = 6,
++					.iface = 0,
++					.altsetting = 1,
++					.altset_idx = 1,
++					.endpoint = 0x01,
++					.ep_attr = USB_ENDPOINT_XFER_ISOC|
++						USB_ENDPOINT_SYNC_ASYNC,
++					.rates = SNDRV_PCM_RATE_44100,
++					.rate_min = 44100,
++					.rate_max = 44100,
++					.nr_rates = 1,
++					.rate_table = (unsigned int[]) { 44100 },
++					.sync_ep = 0x82,
++					.sync_iface = 0,
++					.sync_altsetting = 1,
++					.sync_ep_idx = 1,
++					.implicit_fb = 1,
++				}
++			},
++			{
++				QUIRK_DATA_AUDIOFORMAT(0) {
++					.formats = SNDRV_PCM_FMTBIT_S24_3LE,
++					.channels = 6,
++					.iface = 0,
++					.altsetting = 1,
++					.altset_idx = 1,
++					.endpoint = 0x82,
++					.ep_idx = 1,
++					.ep_attr = USB_ENDPOINT_XFER_ISOC|
++						USB_ENDPOINT_SYNC_ASYNC|
++						USB_ENDPOINT_USAGE_IMPLICIT_FB,
++					.rates = SNDRV_PCM_RATE_44100,
++					.rate_min = 44100,
++					.rate_max = 44100,
++					.nr_rates = 1,
++					.rate_table = (unsigned int[]) { 44100 }
++				}
++			},
++			{ QUIRK_DATA_STANDARD_MIDI(2) },
++			QUIRK_COMPOSITE_END
++		}
++	}
++},
++
++{
++	/*
+ 	 * PIONEER DJ DDJ-800
+ 	 * PCM is 6 channels out, 6 channels in @ 44.1 fixed
+ 	 * The Feedback for the output is the input
+diff -ruN a/sound/usb/quirks.c b/sound/usb/quirks.c
+--- a/sound/usb/quirks.c
++++ b/sound/usb/quirks.c
+@@ -2283,6 +2283,8 @@
+ 		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
+ 	DEVICE_FLG(0x1397, 0x0509, /* Behringer UMC404HD */
+ 		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
++	DEVICE_FLG(0x2b73, 0x0020, /* AlphaTheta DDJ-1000 */
++		   QUIRK_FLAG_PLAYBACK_FIRST),
+ 	DEVICE_FLG(0x13e5, 0x0001, /* Serato Phono */
+ 		   QUIRK_FLAG_IGNORE_CTL_ERROR),
+ 	DEVICE_FLG(0x152a, 0x880a, /* NeuralDSP Quad Cortex */

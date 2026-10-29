@@ -1,5 +1,24 @@
 # ddj1000-linux-driver
 
+> **Fork notes (Debian 13 / MX Linux 25, kernel 6.12)**
+>
+> This fork changes how the audio driver is built and installed:
+>
+> - **DKMS package** (`dkms/`): the patched `snd-usb-audio` and
+>   `snd-usbmidi-lib` are rebuilt automatically for every new kernel.
+>   Sources come from Debian's `linux-source-X.Y` package instead of a
+>   hard-coded Ubuntu `linux-hwe-6.17` download.
+> - **Fixed kernel patch** (`patches/linux/snd-usb-audio-ddj1000-6.12.patch`):
+>   the last `endpoint.c` hunk of the original patch (the empty
+>   implicit-feedback fallback that the notes call the decisive fix) was
+>   malformed and silently skipped by `patch`. It is rebuilt here, limited to
+>   the DDJ-1000 USB ID, with per-URB logging moved to debug level.
+>   The original is kept as `patches/linux/upstream-original-6.17-BROKEN.patch`.
+> - Install with `bash scripts/install-ddj1000-linux-stack.sh install`
+>   (needs Internet the first time for `dkms`, headers and `linux-source`).
+> - Italian install guide for an offline MX Linux PC: `INSTALL-MX.md`.
+>   Project context: `CONTEXT.md`.
+
 Experimental Linux audio-driver and host-stack work for the AlphaTheta / Pioneer DJ DDJ-1000.
 
 This repository contains standalone Linux-facing DDJ-1000 transport, install flow, and validation work for discussion, testing, and publication.
@@ -56,7 +75,7 @@ bash scripts/install-ddj1000-linux-stack.sh uninstall
 ## Current Limits
 
 - this is not an upstream-quality kernel driver package yet
-- there is no DKMS packaging yet
+- DKMS packaging exists for kernel series 6.12 only (add a patch per series)
 - Secure Boot still requires a manual local MOK enrollment step
 - the module build flow is still tailored to Debian or Ubuntu style kernel-source packaging
 - there is no proven cross-distro reproducibility yet

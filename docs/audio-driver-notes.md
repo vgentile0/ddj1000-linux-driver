@@ -16,7 +16,7 @@ Prepared local test workflow:
 ./scripts/dev/prepare-ddj1000-snd-usb-audio-module.sh
 ```
 
-This downloads Ubuntu kernel source into `/tmp`, applies `patches/linux/snd-usb-audio-ddj1000-composite-quirk.patch`, builds `snd-usb-audio.ko` against the installed kernel headers, copies the result to ignored `build/ddj1000-driver/`, and signs it with a local MOK key.
+This downloads Ubuntu kernel source into `/tmp`, applies the original quirk patch (kept as `patches/linux/upstream-original-6.17-BROKEN.patch`; its last `endpoint.c` hunk is malformed and silently skipped by `patch`), builds `snd-usb-audio.ko` against the installed kernel headers, copies the result to ignored `build/ddj1000-driver/`, and signs it with a local MOK key.
 
 With Secure Boot enabled, a fresh machine still needs one manual MOK enrollment before the locally built module can be loaded:
 
