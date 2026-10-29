@@ -118,11 +118,10 @@ reload_modules() {
 
 # The file on disk can be the patched one while the kernel still runs the
 # stock module (unload fails when PipeWire or another USB sound card holds it).
+# Debian modules carry no srcversion, so use the out-of-tree taint flag "O",
+# which only the DKMS-built module has.
 loaded_module_is_patched() {
-    local on_disk loaded
-    on_disk="$(modinfo -F srcversion snd_usb_audio 2>/dev/null || true)"
-    loaded="$(cat /sys/module/snd_usb_audio/srcversion 2>/dev/null || true)"
-    [[ -n "$on_disk" && "$on_disk" == "$loaded" ]]
+    grep -q 'O' /sys/module/snd_usb_audio/taint 2>/dev/null
 }
 
 show_loaded_state() {
